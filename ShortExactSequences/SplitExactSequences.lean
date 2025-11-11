@@ -155,6 +155,32 @@ end
 
 ------------------------------------------------------   -------------------------------------------------------------------
 
+
+noncomputable section
+
+variable {dia  : CommDiagramOfSES}
+
+
+def retractionFromRetraction (bij : Function.Bijective dia.v₁.hom') (r : hasRetraction dia.s₂) : hasRetraction dia.s₁ where
+  r := (AddEquiv.ofBijective _ bij).symm.toAddMonoidHom.comp (r.r.comp dia.v₂.hom')
+  isRetraction := by
+    rw [AddMonoidHom.comp_assoc, AddMonoidHom.comp_assoc, CommLeft, <- AddMonoidHom.comp_assoc _ _ r.r, hasRetraction.isRetraction]
+    rw [AddMonoidHom.id_comp]
+    ext x
+    simp
+    apply (AddEquiv.ofBijective dia.v₁.hom' bij).symm.right_inv
+
+
+
+
+
+
+
+
+end
+
+------------------------------------------------------   -------------------------------------------------------------------
+
 section
 
 variable (A C : Ab)
