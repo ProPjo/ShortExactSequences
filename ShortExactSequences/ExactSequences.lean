@@ -688,3 +688,40 @@ lemma surjectiveOfExactZero {A B C : Type*} [AddCommGroup A] [AddCommGroup B] [A
   have : x ∈ g.ker := Czero (g x)
   rw [AddMonoidHom.exact_iff.mp exact] at this
   exact this
+
+
+theorem fiveLemma {dia : CommDiagramOfSES} (h₁ : Function.Bijective dia.v₁.hom') (h₃ : Function.Bijective dia.v₃.hom') : Function.Bijective dia.v₂.hom' := by
+  constructor
+  · apply (AddMonoidHom.ker_eq_bot_iff _).mp
+    apply (AddSubgroup.eq_bot_iff_forall _).mpr
+    rintro x hx
+    simp at hx
+    have : dia.s₂.g.hom'.comp dia.v₂.hom' x = 0 := by simp [hx]
+    have h : x ∈ dia.s₁.g.hom'.ker := by
+      rw [<- CommRightElt] at this
+      simp at this
+      rw [<- map_zero dia.v₃.hom'] at this
+      apply h₃.1 at this
+      exact this
+    rw [<- RangeIsKernel dia.s₁] at h
+    rcases h with ⟨w, hw⟩
+    rw [<- hw, <- map_zero dia.s₁.f.hom']
+    suffices w = 0 by simp [this]
+    have : Function.Injective (dia.s₂.f.hom'.comp dia.v₁.hom') := by apply Function.Injective.comp dia.s₂.injective h₁.1
+    have h : dia.s₂.f.hom'.comp dia.v₁.hom' w = dia.s₂.f.hom'.comp dia.v₁.hom' 0 := by
+      rw [<- CommLeftElt dia]
+      simp [hw, hx]
+    exact this h
+  · intro y
+    have : ∃ x, dia.s₂.g.hom' (dia.v₂.hom' x) = dia.s₂.g.hom' y := by
+      rcases h₃.2 (dia.s₂.g.hom' y) with ⟨z, hz⟩
+      rcases dia.s₁.surjective z with ⟨x, hx⟩
+      use x
+      suffices (dia.s₂.g.hom'.comp dia.v₂.hom') x = dia.s₂.g.hom' y by apply this
+      rw [<- CommRightElt]
+      simp [hx, hz]
+    rcases this with ⟨w, hw⟩
+    rcases SameFibre hw.symm with ⟨a, ha⟩
+    rcases h₁.2 a with ⟨x, hx⟩
+    use dia.s₁.f.hom' x + w
+    rw [map_add, CommLeftElt₂, hx, ha, sub_add_cancel]
