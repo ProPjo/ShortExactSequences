@@ -1,13 +1,17 @@
 import ShortExactSequences.ExactSequences
 import Mathlib
 
-structure hasSection (a : AddCommGroupSES) where
-  s : a.X₃ →+ a.X₂
-  isSection : a.g.hom'.comp s = AddMonoidHom.id a.X₃
 
+-- TODO: Update these to ⟶ instead of →+, do not forget substGrphom!
+@[ext]
+structure hasSection (a : AddCommGroupSES) where
+  s : a.X₃ ⟶ a.X₂
+  isSection : a.g.hom'.comp s.hom' = AddMonoidHom.id a.X₃
+
+@[ext]
 structure hasRetraction (a : AddCommGroupSES) where
-  r : a.X₂ →+ a.X₁
-  isRetraction : r.comp a.f.hom' = AddMonoidHom.id a.X₁
+  r : a.X₂ ⟶ a.X₁
+  isRetraction : r.hom'.comp a.f.hom' = AddMonoidHom.id a.X₁
 
 
 
@@ -102,7 +106,7 @@ def sectionHomFromRetraction : a.X₃ →+ a.X₂ := AddMonoidHom.mk' (sectionFu
 
 
 def sectionFromRetraction : hasSection a where
-  s := sectionHomFromRetraction hr
+  s := groupHomToGrpHom <| sectionHomFromRetraction hr
   isSection := by
     ext x
     simp [<- CategoryHomIsHom]
@@ -143,7 +147,7 @@ def retractionHomFromSection : a.X₂ →+ a.X₁ := AddMonoidHom.mk' (retractio
 
 
 def retractionFromSection : hasRetraction a where
-  r := retractionHomFromSection hs
+  r := groupHomToGrpHom <| retractionHomFromSection hs
   isRetraction := by
     ext x
     simp [<- CategoryHomIsHom]
@@ -163,30 +167,47 @@ def AddGroupInverse {A B : Ab} (f : A →+ B) (h : Function.Bijective f) : B →
   AddMonoidHom.inverse f (Function.invFun f) (Function.leftInverse_invFun h.1) (Function.rightInverse_invFun h.2)
 
 
-theorem AddGroupInverseIsRightInverse {A B : Ab} (f : A →+ B) (h : Function.Bijective f) : f.comp (AddGroupInverse f h) = AddMonoidHom.id _ := by
-  ext x
+@[simp]
+theorem AddGroupInverseIsRightInverseElt {A B : Ab} (f : A →+ B) (h : Function.Bijective f) : ∀ x, f (AddGroupInverse f h x) = x := by
+  intro x
   unfold AddGroupInverse
   simp
   apply Function.rightInverse_invFun h.2
 
 
-theorem AddGroupInverseIsLeftInverse {A B : Ab} (f : A →+ B) (h : Function.Bijective f) : (AddGroupInverse f h).comp f = AddMonoidHom.id _ := by
+theorem AddGroupInverseIsRightInverse {A B : Ab} (f : A →+ B) (h : Function.Bijective f) : f.comp (AddGroupInverse f h) = AddMonoidHom.id _ := by
   ext x
+  simp
+
+
+@[simp]
+theorem AddGroupInverseIsLeftInverseElt {A B : Ab} (f : A →+ B) (h : Function.Bijective f) : ∀ x, (AddGroupInverse f h) (f x) = x := by
+  intro x
   unfold AddGroupInverse
   simp
   apply Function.leftInverse_invFun h.1
+
+theorem AddGroupInverseIsLeftInverse {A B : Ab} (f : A →+ B) (h : Function.Bijective f) : (AddGroupInverse f h).comp f = AddMonoidHom.id _ := by
+  ext x
+  simp
 
 variable {dia  : CommDiagramOfSES}
 
 
 def liftedRetraction (bij : Function.Bijective dia.v₁.hom') (r : hasRetraction dia.s₂) : hasRetraction dia.s₁ where
-  r := (AddGroupInverse _ bij).comp (r.r.comp dia.v₂.hom')
+  r := groupHomToGrpHom <| (AddGroupInverse _ bij).comp (r.r.hom'.comp dia.v₂.hom')
   isRetraction := by
-    rw [AddMonoidHom.comp_assoc, AddMonoidHom.comp_assoc, CommLeft, <- AddMonoidHom.comp_assoc _ _ r.r, hasRetraction.isRetraction]
+    rw [groupHomCompatible]
+    rw [AddMonoidHom.comp_assoc, AddMonoidHom.comp_assoc, CommLeft, <- AddMonoidHom.comp_assoc _ _ r.r.hom', hasRetraction.isRetraction]
     rw [AddMonoidHom.id_comp]
     ext x
     apply congrHom (AddGroupInverseIsLeftInverse _ _)
 
+
+lemma liftedRetractionEqElt {bij : Function.Bijective dia.v₁.hom'} {r : hasRetraction dia.s₂} : ∀ x, dia.v₁.hom'.comp (liftedRetraction bij r).r.hom' x = r.r.hom'.comp dia.v₂.hom' x := by
+  intro x
+  unfold liftedRetraction
+  simp
 
 
 theorem commutativeBijectionsRight (bij₁ : Function.Bijective dia.v₁.hom') (bij₂ : Function.Bijective dia.v₃.hom') : (AddGroupInverse dia.v₃.hom' bij₂).comp dia.s₂.g.hom' = dia.s₁.g.hom'.comp (AddGroupInverse dia.v₂.hom' (fiveLemma bij₁ bij₂)) := by
@@ -198,12 +219,18 @@ theorem commutativeBijectionsRight (bij₁ : Function.Bijective dia.v₁.hom') (
 
 
 def liftedSection (bij₁ : Function.Bijective dia.v₁.hom') (bij₂ : Function.Bijective dia.v₃.hom') (s : hasSection dia.s₂) : hasSection dia.s₁ where
-  s := (AddGroupInverse _ (fiveLemma bij₁ bij₂)).comp (s.s.comp dia.v₃.hom')
+  s := groupHomToGrpHom <| (AddGroupInverse _ (fiveLemma bij₁ bij₂)).comp (s.s.hom'.comp dia.v₃.hom')
   isSection := by
     let u₂ := AddGroupInverse dia.v₂.hom' (fiveLemma bij₁ bij₂)
     let u₃ := AddGroupInverse dia.v₃.hom' bij₂
-    rw [<- AddMonoidHom.comp_assoc, <- commutativeBijectionsRight bij₁ bij₂, AddMonoidHom.comp_assoc]
+    rw [groupHomCompatible, <- AddMonoidHom.comp_assoc, <- commutativeBijectionsRight bij₁ bij₂, AddMonoidHom.comp_assoc]
     rw [<- AddMonoidHom.comp_assoc dia.v₃.hom', s.isSection, AddMonoidHom.id_comp, AddGroupInverseIsLeftInverse]
+
+
+lemma liftedSectionEqElt {bij₁ : Function.Bijective dia.v₁.hom'} {bij₂ : Function.Bijective dia.v₃.hom'} {s : hasSection dia.s₂} : ∀ x, dia.v₂.hom'.comp (liftedSection bij₁ bij₂ s).s.hom' x = s.s.hom'.comp dia.v₃.hom' x := by
+  intro x
+  unfold liftedSection
+  simp
 
 end
 
@@ -275,11 +302,11 @@ def trivialSplit : AddCommGroupSES where
 
 
 def trivialRetraction : hasRetraction (trivialSplit A C) where
-  r := (DirectSum.component ℤ _ (ds A C) 0).toAddMonoidHom
+  r := groupHomToGrpHom <| (DirectSum.component ℤ _ (ds A C) 0).toAddMonoidHom
   isRetraction := rfl
 
 def trivialSection : hasSection (trivialSplit A C) where
-  s := (DirectSum.of (ds A C) (1 : Fin 2))
+  s := groupHomToGrpHom (DirectSum.of (ds A C) (1 : Fin 2))
   isSection := rfl
 
 
@@ -292,6 +319,8 @@ section
 lemma carrierConv {A B : Ab} (eq : A = B) : A.carrier = B.carrier := by rw [eq]
 
 def grphomSubst {A B C : Ab} (eq : B = C) (f : A ⟶ B) : A ⟶ C := by rw [eq] at f; apply f
+
+def substGrphom {A B C : Ab} (eq : A = C) (f : A ⟶ B) : C ⟶ B := by rw [<- eq]; apply f
 
 def mapSubst {A B C : Type} (eq : B = C) (f : A → B) : A → C := (cast eq) ∘ f
 
@@ -309,6 +338,13 @@ lemma grphomSubstCompat {A B C : Ab} (eq : B = C) (f : A ⟶ B) : grphomSubst eq
   cases eq
   rfl
 
+lemma substGrphomCompat {A B C : Ab} (eq : A = C) (f : A ⟶ B) : substGrphom eq f = f.hom'.toFun.comp (cast (carrierConv eq.symm)) := by
+  ext x
+  unfold substGrphom
+  simp
+  cases eq
+  rfl
+
 
 lemma grphomSubstCompatElt {A B C : Ab} (eq : B = C) (f : A ⟶ B) : ∀ x, (grphomSubst eq f).hom' x = cast (carrierConv eq) (f.hom' x):= by
   intro x
@@ -317,10 +353,29 @@ lemma grphomSubstCompatElt {A B C : Ab} (eq : B = C) (f : A ⟶ B) : ∀ x, (grp
   cases eq
   rfl
 
+lemma substGrphomCompatElt {A B C : Ab} (eq : A = C) (f : A ⟶ B) : ∀ x, (substGrphom eq f) x = f (cast (carrierConv eq.symm) x):= by
+  intro x
+  unfold substGrphom
+  simp
+  cases eq
+  rfl
 
+
+@[simp]
 lemma grphomSubstCompos {A B C : Ab} {eq : B = C} (f : A ⟶ B) : grphomSubst eq.symm (grphomSubst eq f) = f := by
   unfold grphomSubst
   simp
+
+@[simp]
+lemma substGrphomCompos {A B C : Ab} {eq : A = C} (f : A ⟶ B) : substGrphom eq.symm (substGrphom eq f) = f := by
+  unfold substGrphom
+  simp
+
+
+lemma doubleSubst {A B C D : Ab} {eq₁ : A = C} {eq₂ : B = D} (f : A ⟶ B) : substGrphom eq₁ (grphomSubst eq₂ f) = grphomSubst eq₂ (substGrphom eq₁ f) := by
+  unfold grphomSubst substGrphom
+  simp
+
 
 
 lemma grphomSubstBij {A B C : Ab} (eq : B = C) (f : A ⟶ B) : Function.Bijective (grphomSubst eq f).hom' → Function.Bijective f.hom' := by
@@ -354,7 +409,7 @@ lemma grphomSubstBij₂ {A B C : Ab} (eq : B = C) (f : A ⟶ B) : Function.Bijec
     rw [<- hw, grphomSubstCompatElt eq]
 
 
-
+-- TODO make inherit from CommDiagramOfSES
 structure isSplit (a : AddCommGroupSES) where
   dia : CommDiagramOfSES
   topIsa : dia.s₁ = a
@@ -401,12 +456,87 @@ def trivialSplitIsSplit (A C : Ab) : isSplit (trivialSplit A C) where
   identity1 := rfl
   identity2 := rfl
 
+variable {a : AddCommGroupSES} (split : isSplit a)
 
-noncomputable def retractionFromSplit {a : AddCommGroupSES} (split : isSplit a) : hasRetraction a := by
-  have : hasRetraction split.dia.s₂ := by
-    rw [split.botIsTriv]
-    apply trivialRetraction a.X₁ a.X₃
+def bottomRetractionFromSplit : hasRetraction split.dia.s₂ := by
+  rw [split.botIsTriv]
+  apply trivialRetraction a.X₁ a.X₃
+
+noncomputable def retractionFromSplit' : hasRetraction split.dia.s₁ := by
+  apply liftedRetraction (splitv₁bij _) (bottomRetractionFromSplit _)
+
+noncomputable def retractionFromSplit : hasRetraction a := by
   rw [<- split.topIsa]
-  apply liftedRetraction (splitv₁bij split) this
+  apply retractionFromSplit'
+
+lemma eqX₁ : split.dia.s₁.X₁ = a.X₁ := by rw [split.topIsa]
+
+lemma eqX₁' {a b : AddCommGroupSES} (eq : a = b) : a.X₁ = b.X₁ := by rw [eq]
+
+lemma eqX₂ : split.dia.s₁.X₂ = a.X₂ := by rw [split.topIsa]
+
+lemma eqX₂' {a b : AddCommGroupSES} (eq : a = b) : a.X₂ = b.X₂ := by rw [eq]
+
+def sequenceSubst {a b : AddCommGroupSES} (eq : a = b) (f : a.X₂ ⟶ a.X₁) : b.X₂ ⟶ b.X₁ := by
+  rw [<- eq]
+  apply f
+
+
+lemma sequenceSubstIsDoubleSubst {a b : AddCommGroupSES} (eq : a = b) (f : a.X₂ ⟶ a.X₁) : sequenceSubst eq f = substGrphom (eqX₂' eq) (grphomSubst (eqX₁' eq) f) := by
+  ext x
+  cases eq
+  rfl
+
+lemma sequenceSubstIsDoubleSubstElt {a b : AddCommGroupSES} (eq : a = b) (f : a.X₂ ⟶ a.X₁) : ∀ x, sequenceSubst eq f x = substGrphom (eqX₂' eq) (grphomSubst (eqX₁' eq) f) x := by
+  intro x
+  cases eq
+  rfl
+
+lemma rewasdfasdfasfd : (retractionFromSplit split).r.hom' = (sequenceSubst split.topIsa (retractionFromSplit' split).r).hom' := by
+  unfold retractionFromSplit sequenceSubst
+  simp
+  ext x
+  have : hasRetraction split.dia.s₁ = hasRetraction a := by rw [split.topIsa]
+  sorry
+
+
+lemma retractionFromSplitConv' : ∀ x : a.X₂, (grphomSubst (eqX₁ split).symm (retractionFromSplit split).r).hom' x =  (substGrphom (eqX₂ split) (retractionFromSplit' split).r).hom' x := by
+  intro x
+  unfold retractionFromSplit
+  unfold retractionFromSplit'
+  simp
+
+
+  sorry
+
+lemma retractionFromSplitConv : ∀ x : a.X₂, (retractionFromSplit split).r.hom' x =  (grphomSubst (eqX₁ split) (substGrphom (eqX₂ split) (retractionFromSplit' split).r)).hom' x := by
+  intro x
+  unfold retractionFromSplit retractionFromSplit'
+  simp
+
+
+
+  sorry
+
+
+lemma retractionFromSplitEqElt : ∀ x, split.dia.v₁.hom' ((retractionFromSplit' split).r x) = (bottomRetractionFromSplit split).r (split.dia.v₂.hom' x) := by
+  intro x
+  rw [retractionFromSplit', liftedRetraction]
+  simp
+
+noncomputable def sectionFromSplit : hasSection a := by
+  have : hasSection split.dia.s₂ := by
+    rw [split.botIsTriv]
+    apply trivialSection a.X₁ a.X₃
+  rw [<- split.topIsa]
+  apply liftedSection (splitv₁bij split) (splitv₃bij split) this
+
+
+
+lemma sectionFromRetractionFromSplitIsSectionFromSplit : sectionFromRetraction (retractionFromSplit split) = sectionFromSplit split := by
+  ext x
+
+  sorry
+
 
 end
